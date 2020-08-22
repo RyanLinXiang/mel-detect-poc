@@ -15,7 +15,6 @@ class App extends React.Component {
     image: null,
     tfjsmodel: null,
     error: false,
-    showModal: false,
   };
 
   async componentDidMount() {
@@ -28,7 +27,7 @@ class App extends React.Component {
       let tfjsmodel;
 
       const tfmodel = require("./assets/model/model.json");
-      const weights = require("../assets/model/weights.bin");
+      const weights = require("./assets/model/weights.bin");
       tfjsmodel = await tf.loadGraphModel(bundleResourceIO(tfmodel, weights));
 
       this.setState({ isModelReady: true, tfjsmodel });
@@ -92,7 +91,7 @@ class App extends React.Component {
         imageTensor
         //options
       );
-      this.setState({ predictions, tooltip: true });
+      this.setState({ predictions });
     } catch (error) {
       this.setState({ error });
     }
@@ -127,6 +126,102 @@ class App extends React.Component {
     else if (isModelReady && image && !predictions) loading = "predict";
     else loading = "model";
 
+    if (predictions) console.log(predictions);
+
+    if (!error) {
+      if (!loading) {
+        if (image && !predictions) output = <Image source={image} />;
+        else if (image && predictions) {
+          output = (
+            <React.Fragment>
+              <ImageBackground
+                source={image}
+                blurRadius={50}
+                style={styles.predictedImage}
+                imageStyle={styles.predictedImageExtras}
+              >
+                <View
+                  style={{
+                    backgroundColor: "rgba(0,0,0,0.5)",
+                    width: "100%",
+                    height: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 150,
+                  }}
+                >
+                  <Animatable.Text
+                    animation={"pulse"}
+                    duration={2000}
+                    style={styles.predictedNumberHeader}
+                  >
+                    <Text>Wahrscheinlichkeit für Melanom:</Text>
+                  </Animatable.Text>
+
+                  <Animatable.Text
+                    animation={"bounceIn"}
+                    duration={5000}
+                    style={styles.predictedNumber}
+                  >
+                    <Text>
+                      {Math.round(predictions.dataSync()[0] * 100)}
+                      <Text style={styles.predictedNumberPercentage}> %</Text>
+                    </Text>
+                  </Animatable.Text>
+                </View>
+              </ImageBackground>
+            </React.Fragment>
+          );
+        } else if (isModelReady && !image)
+          output = (
+            <Animatable.View animation={"wobble"} duration={3000}>
+              <Icon
+                style={{
+                  width: 100,
+                  height: 100,
+                }}
+                name="image-outline"
+              />
+            </Animatable.View>
+          );
+      } else {
+        switch (loading) {
+          case "model":
+            output = (
+              <BarIndicator
+                size={80}
+                style={styles.indicator}
+                color="darkorange"
+              />
+            );
+            break;
+          case "predict":
+            output = (
+              <WaveIndicator
+                size={80}
+                count={10}
+                style={styles.indicator}
+                color="darkorange"
+              />
+            );
+          default:
+            break;
+        }
+      }
+    } else
+      output = (
+        <React.Fragment>
+          <ImageBackground
+            source={image}
+            blurRadius={50}
+            style={styles.predictedImage}
+            imageStyle={styles.predictedImageExtras}
+          >
+            <Text>Bitte versuchen Sie es nochmal.</Text>
+          </ImageBackground>
+        </React.Fragment>
+      );
+
     return (
       <View style={styles.container}>
         <View style={styles.innercontainer}>
@@ -146,7 +241,7 @@ class App extends React.Component {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: globalcss.container.backgroundColor,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
@@ -161,7 +256,7 @@ const styles = StyleSheet.create({
     width: 300,
     height: 300,
     padding: 5,
-    borderRadius: 150,
+    borderRadius: 20,
     opacity: 0.7,
     alignItems: "center",
     justifyContent: "center",
@@ -169,28 +264,6 @@ const styles = StyleSheet.create({
     borderColor: "white",
     borderWidth: 5,
     borderStyle: "dotted",
-  },
-
-  hints: {
-    marginTop: 20,
-  },
-  backdrop: {
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-  },
-  modal: {
-    marginRight: 50,
-    borderRadius: 30,
-    justifyContent: "space-evenly",
-    backgroundColor: "white",
-    height: globalcss.screenHeight * 0.8,
-  },
-  modalCard: {
-    paddingBottom: 40,
-    borderColor: "white",
-    borderRadius: 20,
-  },
-  closeButtomArt: {
-    paddingVertical: 10,
   },
 });
 
