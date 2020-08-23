@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  View,
-  TouchableOpacity,
-  Image,
-  Text,
-  Button,
-} from "react-native";
+import { StyleSheet, View, TouchableOpacity, Image, Text } from "react-native";
 import * as tf from "@tensorflow/tfjs";
 import { fetch, bundleResourceIO } from "@tensorflow/tfjs-react-native";
 import Constants from "expo-constants";
@@ -24,9 +17,13 @@ async function getPermissionAsync() {
   }
 }
 
-function imageToTensor(rawImageData) {
-  const TO_UINT8ARRAY = true;
-  const { width, height, data } = jpeg.decode(rawImageData, TO_UINT8ARRAY);
+async function imageToTensor(source) {
+  const response = await fetch(source.uri, {}, { isBinary: true });
+  const rawImageData = await response.arrayBuffer();
+
+  const { width, height, data } = jpeg.decode(rawImageData, {
+    useTArray: true,
+  });
 
   const buffer = new Uint8Array(width * height * 3);
   let offset = 0;
@@ -34,7 +31,6 @@ function imageToTensor(rawImageData) {
     buffer[i] = data[offset];
     buffer[i + 1] = data[offset + 1];
     buffer[i + 2] = data[offset + 2];
-
     offset += 4;
   }
 
@@ -51,7 +47,6 @@ function imageToTensor(rawImageData) {
     [startingWidth, startingHeight, 0],
     [endingWidth, endingHeight, 3]
   );
-
   const resized_img = tf.image.resizeBilinear(sliced_img, [224, 224]);
 
   const expanded_img = resized_img.expandDims(0);
@@ -60,9 +55,9 @@ function imageToTensor(rawImageData) {
 
 export default function App() {
   const [isTfReady, setTfReady] = useState(false);
-  const [predictions, setPredictions] = useState(null);
-  const [image, setImage] = useState(null);
   const [model, setModel] = useState(null);
+  const [image, setImage] = useState(null);
+  const [predictions, setPredictions] = useState(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -81,23 +76,6 @@ export default function App() {
     })();
   }, []);
 
-  async function classifyImage(source) {
-    try {
-      const imageAssetPath = Image.resolveAssetSource(source);
-      const response = await fetch(imageAssetPath.uri, {}, { isBinary: true });
-      const rawImageData = await response.arrayBuffer();
-      const imageTensor = imageToTensor(rawImageData);
-      //const options = { centerCrop: true };
-      const predictions = await model.predict(
-        imageTensor
-        //options
-      );
-      setPredictions(predictions);
-    } catch (error) {
-      setError(error);
-    }
-  }
-
   async function handlerSelectImage() {
     try {
       let response = await ImagePicker.launchImageLibraryAsync({
@@ -110,7 +88,9 @@ export default function App() {
       if (!response.cancelled) {
         const source = { uri: response.uri };
         setImage(source);
-        classifyImage(source);
+        const imageTensor = await imageToTensor(source);
+        const predictions = await model.predict(imageTensor);
+        setPredictions(predictions);
       }
     } catch (error) {
       setError(error);
@@ -148,6 +128,7 @@ export default function App() {
   } else {
     statusMessage = "Unexpected error occured.";
     showReset = true;
+    console.log(error);
   }
 
   return (
@@ -158,11 +139,7 @@ export default function App() {
         </Text>
         <TouchableOpacity
           style={styles.imageContainer}
-          onPress={
-            model && model.predict && !predictions
-              ? handlerSelectImage
-              : undefined
-          }
+          onPress={model && !predictions ? handlerSelectImage : undefined}
         >
           <Output
             status={status}

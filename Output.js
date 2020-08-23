@@ -13,7 +13,7 @@ export default function Output(props) {
 
   if (!error) {
     if (status === "modelReady" && !image)
-      output = <Text style={{ fontSize: 50 }}>&uarr;</Text>;
+      output = <Text style={styles.placeholder}>&uarr;</Text>;
     else if (status === "finished") {
       output = (
         <ImageBackground
@@ -56,6 +56,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  pleaseholder: { fontSize: 50 },
   predictedImageExtras: { borderRadius: 20 },
   predictedNumberHeader: { fontSize: 12, color: "white" },
   predictedNumberPercentage: { fontSize: 24, color: "white" },
