@@ -1,11 +1,12 @@
 import React from "react";
-import { StyleSheet, View, TouchableOpacity, Image } from "react-native";
+import { StyleSheet, View, TouchableOpacity, Image, Text } from "react-native";
 import * as tf from "@tensorflow/tfjs";
 import { fetch, bundleResourceIO } from "@tensorflow/tfjs-react-native";
 import Constants from "expo-constants";
 import * as Permissions from "expo-permissions";
 import * as ImagePicker from "expo-image-picker";
 import * as jpeg from "jpeg-js";
+import Output from "./Output";
 
 class App extends React.Component {
   state = {
@@ -26,8 +27,8 @@ class App extends React.Component {
 
       let tfjsmodel;
 
-      const tfmodel = require("./assets/model/model.json");
-      const weights = require("./assets/model/weights.bin");
+      const tfmodel = require("./assets/model.json");
+      const weights = require("./assets/weights.bin");
       tfjsmodel = await tf.loadGraphModel(bundleResourceIO(tfmodel, weights));
 
       this.setState({ isModelReady: true, tfjsmodel });
@@ -119,112 +120,26 @@ class App extends React.Component {
   render() {
     const { isTfReady, isModelReady, predictions, image, error } = this.state;
 
-    let loading;
+    let status, statusMessage;
 
-    if (isTfReady && isModelReady && !image && !predictions) loading = false;
-    else if (isModelReady && image && predictions) loading = false;
-    else if (isModelReady && image && !predictions) loading = "predict";
-    else loading = "model";
-
-    if (predictions) console.log(predictions);
-
-    if (!error) {
-      if (!loading) {
-        if (image && !predictions) output = <Image source={image} />;
-        else if (image && predictions) {
-          output = (
-            <React.Fragment>
-              <ImageBackground
-                source={image}
-                blurRadius={50}
-                style={styles.predictedImage}
-                imageStyle={styles.predictedImageExtras}
-              >
-                <View
-                  style={{
-                    backgroundColor: "rgba(0,0,0,0.5)",
-                    width: "100%",
-                    height: "100%",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 150,
-                  }}
-                >
-                  <Animatable.Text
-                    animation={"pulse"}
-                    duration={2000}
-                    style={styles.predictedNumberHeader}
-                  >
-                    <Text>Wahrscheinlichkeit für Melanom:</Text>
-                  </Animatable.Text>
-
-                  <Animatable.Text
-                    animation={"bounceIn"}
-                    duration={5000}
-                    style={styles.predictedNumber}
-                  >
-                    <Text>
-                      {Math.round(predictions.dataSync()[0] * 100)}
-                      <Text style={styles.predictedNumberPercentage}> %</Text>
-                    </Text>
-                  </Animatable.Text>
-                </View>
-              </ImageBackground>
-            </React.Fragment>
-          );
-        } else if (isModelReady && !image)
-          output = (
-            <Animatable.View animation={"wobble"} duration={3000}>
-              <Icon
-                style={{
-                  width: 100,
-                  height: 100,
-                }}
-                name="image-outline"
-              />
-            </Animatable.View>
-          );
-      } else {
-        switch (loading) {
-          case "model":
-            output = (
-              <BarIndicator
-                size={80}
-                style={styles.indicator}
-                color="darkorange"
-              />
-            );
-            break;
-          case "predict":
-            output = (
-              <WaveIndicator
-                size={80}
-                count={10}
-                style={styles.indicator}
-                color="darkorange"
-              />
-            );
-          default:
-            break;
-        }
-      }
-    } else
-      output = (
-        <React.Fragment>
-          <ImageBackground
-            source={image}
-            blurRadius={50}
-            style={styles.predictedImage}
-            imageStyle={styles.predictedImageExtras}
-          >
-            <Text>Bitte versuchen Sie es nochmal.</Text>
-          </ImageBackground>
-        </React.Fragment>
-      );
+    if (isTfReady && isModelReady && !image && !predictions) {
+      status = "modelReady";
+      statusMessage = "Model is ready.";
+    } else if (isModelReady && image && predictions) {
+      status = "finished";
+      statusMessage = "Prediction finished.";
+    } else if (isModelReady && image && !predictions) {
+      status = "modelPredict";
+      statusMessage = "Model is predicting...";
+    } else {
+      status = "modelLoad";
+      statusMessage = "Model is loading...";
+    }
 
     return (
       <View style={styles.container}>
         <View style={styles.innercontainer}>
+          <Text>{statusMessage}</Text>
           <TouchableOpacity
             style={styles.imageContainer}
             onPress={
@@ -232,7 +147,14 @@ class App extends React.Component {
                 ? this.handlerSelectImage
                 : undefined
             }
-          ></TouchableOpacity>
+          >
+            <Output
+              status={status}
+              image={image}
+              predictions={predictions}
+              error={error}
+            />
+          </TouchableOpacity>
         </View>
       </View>
     );
