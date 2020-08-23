@@ -1,5 +1,12 @@
-import React from "react";
-import { StyleSheet, View, TouchableOpacity, Image, Text } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  Image,
+  Text,
+  Button,
+} from "react-native";
 import * as tf from "@tensorflow/tfjs";
 import { fetch, bundleResourceIO } from "@tensorflow/tfjs-react-native";
 import Constants from "expo-constants";
@@ -8,97 +15,90 @@ import * as ImagePicker from "expo-image-picker";
 import * as jpeg from "jpeg-js";
 import Output from "./Output";
 
-class App extends React.Component {
-  state = {
-    isTfReady: false,
-    isModelReady: false,
-    predictions: null,
-    image: null,
-    tfjsmodel: null,
-    error: false,
-  };
+async function getPermissionAsync() {
+  if (Constants.platform.ios) {
+    const { status } = await Permissions.askAsync(Permissions.CAMERA_ROLL);
+    if (status !== "granted") {
+      alert("Permission for camera access required.");
+    }
+  }
+}
 
-  async componentDidMount() {
-    try {
+function imageToTensor(rawImageData) {
+  const TO_UINT8ARRAY = true;
+  const { width, height, data } = jpeg.decode(rawImageData, TO_UINT8ARRAY);
+
+  const buffer = new Uint8Array(width * height * 3);
+  let offset = 0;
+  for (let i = 0; i < buffer.length; i += 3) {
+    buffer[i] = data[offset];
+    buffer[i + 1] = data[offset + 1];
+    buffer[i + 2] = data[offset + 2];
+
+    offset += 4;
+  }
+
+  const img = tf.tensor3d(buffer, [width, height, 3]);
+
+  const shorterSide = Math.min(width, height);
+
+  const startingHeight = (height - shorterSide) / 2;
+  const startingWidth = (width - shorterSide) / 2;
+  const endingHeight = startingHeight + shorterSide;
+  const endingWidth = startingWidth + shorterSide;
+
+  const sliced_img = img.slice(
+    [startingWidth, startingHeight, 0],
+    [endingWidth, endingHeight, 3]
+  );
+
+  const resized_img = tf.image.resizeBilinear(sliced_img, [224, 224]);
+
+  const expanded_img = resized_img.expandDims(0);
+  return expanded_img.toFloat().div(tf.scalar(127)).sub(tf.scalar(1));
+}
+
+export default function App() {
+  const [isTfReady, setTfReady] = useState(false);
+  const [predictions, setPredictions] = useState(null);
+  const [image, setImage] = useState(null);
+  const [model, setModel] = useState(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    (async () => {
       await tf.ready();
-      this.setState({
-        isTfReady: true,
-      });
+      setTfReady(true);
 
-      let tfjsmodel;
-
-      const tfmodel = require("./assets/model.json");
+      const model = require("./assets/model.json");
       const weights = require("./assets/weights.bin");
-      tfjsmodel = await tf.loadGraphModel(bundleResourceIO(tfmodel, weights));
+      const loadedModel = await tf.loadGraphModel(
+        bundleResourceIO(model, weights)
+      );
 
-      this.setState({ isModelReady: true, tfjsmodel });
-      this.getPermissionAsync();
-    } catch (e) {
-      console.log(e);
-    }
-  }
+      setModel(loadedModel);
+      getPermissionAsync();
+    })();
+  }, []);
 
-  getPermissionAsync = async () => {
-    if (Constants.platform.ios) {
-      const { status } = await Permissions.askAsync(Permissions.CAMERA_ROLL);
-      if (status !== "granted") {
-        alert("Permission for camera access required.");
-      }
-    }
-  };
-
-  imageToTensor(rawImageData) {
-    const TO_UINT8ARRAY = true;
-    const { width, height, data } = jpeg.decode(rawImageData, TO_UINT8ARRAY);
-
-    const buffer = new Uint8Array(width * height * 3);
-    let offset = 0;
-    for (let i = 0; i < buffer.length; i += 3) {
-      buffer[i] = data[offset];
-      buffer[i + 1] = data[offset + 1];
-      buffer[i + 2] = data[offset + 2];
-
-      offset += 4;
-    }
-
-    const img = tf.tensor3d(buffer, [width, height, 3]);
-
-    const shorterSide = Math.min(width, height);
-
-    const startingHeight = (height - shorterSide) / 2;
-    const startingWidth = (width - shorterSide) / 2;
-    const endingHeight = startingHeight + shorterSide;
-    const endingWidth = startingWidth + shorterSide;
-
-    const sliced_img = img.slice(
-      [startingWidth, startingHeight, 0],
-      [endingWidth, endingHeight, 3]
-    );
-
-    const resized_img = tf.image.resizeBilinear(sliced_img, [224, 224]);
-
-    const expanded_img = resized_img.expandDims(0);
-    return expanded_img.toFloat().div(tf.scalar(127)).sub(tf.scalar(1));
-  }
-
-  classifyImage = async (source) => {
+  async function classifyImage(source) {
     try {
       const imageAssetPath = Image.resolveAssetSource(source);
       const response = await fetch(imageAssetPath.uri, {}, { isBinary: true });
       const rawImageData = await response.arrayBuffer();
-      const imageTensor = this.imageToTensor(rawImageData);
+      const imageTensor = imageToTensor(rawImageData);
       //const options = { centerCrop: true };
-      const predictions = await this.state.tfjsmodel.predict(
+      const predictions = await model.predict(
         imageTensor
         //options
       );
-      this.setState({ predictions });
+      setPredictions(predictions);
     } catch (error) {
-      this.setState({ error });
+      setError(error);
     }
-  };
+  }
 
-  handlerSelectImage = async () => {
+  async function handlerSelectImage() {
     try {
       let response = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -109,56 +109,71 @@ class App extends React.Component {
 
       if (!response.cancelled) {
         const source = { uri: response.uri };
-        this.setState({ image: source });
-        this.classifyImage(source);
+        setImage(source);
+        classifyImage(source);
       }
     } catch (error) {
-      this.setState({ error });
+      setError(error);
     }
-  };
+  }
 
-  render() {
-    const { isTfReady, isModelReady, predictions, image, error } = this.state;
+  function reset() {
+    setPredictions(null);
+    setImage(null);
+    setError(false);
+  }
 
-    let status, statusMessage;
+  let status, statusMessage, showReset;
+  const resetLink = (
+    <Text onPress={reset} style={styles.reset}>
+      Restart
+    </Text>
+  );
 
-    if (isTfReady && isModelReady && !image && !predictions) {
+  if (!error) {
+    if (isTfReady && model && !image && !predictions) {
       status = "modelReady";
       statusMessage = "Model is ready.";
-    } else if (isModelReady && image && predictions) {
+    } else if (model && image && predictions) {
       status = "finished";
       statusMessage = "Prediction finished.";
-    } else if (isModelReady && image && !predictions) {
+      showReset = true;
+    } else if (model && image && !predictions) {
       status = "modelPredict";
       statusMessage = "Model is predicting...";
     } else {
       status = "modelLoad";
       statusMessage = "Model is loading...";
     }
-
-    return (
-      <View style={styles.container}>
-        <View style={styles.innercontainer}>
-          <Text>{statusMessage}</Text>
-          <TouchableOpacity
-            style={styles.imageContainer}
-            onPress={
-              isModelReady && this.state.tfjsmodel.predict && !predictions
-                ? this.handlerSelectImage
-                : undefined
-            }
-          >
-            <Output
-              status={status}
-              image={image}
-              predictions={predictions}
-              error={error}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+  } else {
+    statusMessage = "Unexpected error occured.";
+    showReset = true;
   }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.innercontainer}>
+        <Text style={styles.status}>
+          {statusMessage} {showReset ? resetLink : null}
+        </Text>
+        <TouchableOpacity
+          style={styles.imageContainer}
+          onPress={
+            model && model.predict && !predictions
+              ? handlerSelectImage
+              : undefined
+          }
+        >
+          <Output
+            status={status}
+            image={image}
+            predictions={predictions}
+            error={error}
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -173,20 +188,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  status: { marginBottom: 20 },
+  status: { marginBottom: 10 },
+  reset: { color: "blue" },
   imageContainer: {
     width: 300,
     height: 300,
-    padding: 5,
     borderRadius: 20,
     opacity: 0.7,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "lightgrey",
     borderColor: "white",
-    borderWidth: 5,
+    borderWidth: 3,
     borderStyle: "dotted",
   },
 });
-
-export default App;

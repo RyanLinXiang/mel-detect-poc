@@ -7,13 +7,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 
-const Output = (props) => {
+export default function Output(props) {
   const { status, image, predictions, error } = props;
   let output;
 
   if (!error) {
     if (status === "modelReady" && !image)
-      output = <Text style={{ fontSize: "50px" }}>&uarr;</Text>;
+      output = <Text style={{ fontSize: 50 }}>&uarr;</Text>;
     else if (status === "finished") {
       output = (
         <ImageBackground
@@ -32,26 +32,22 @@ const Output = (props) => {
               borderRadius: 20,
             }}
           >
-            <Text>
+            <Text style={styles.predictedNumberHeader}>
               Probability of melanoma:{" "}
+            </Text>
+            <Text style={styles.predictedNumber}>
               {Math.round(predictions.dataSync()[0] * 100)}
+
               <Text style={styles.predictedNumberPercentage}> %</Text>
             </Text>
           </View>
         </ImageBackground>
       );
-    } else
-      output = (
-        <ActivityIndicator
-          size="large"
-          style={styles.indicator}
-          animating={true}
-        />
-      );
+    } else output = <ActivityIndicator size="large" animating={true} />;
   } else output = <Text>Please try again</Text>;
 
   return output;
-};
+}
 
 const styles = StyleSheet.create({
   predictedImage: {
@@ -72,9 +68,4 @@ const styles = StyleSheet.create({
     shadowColor: "black",
     shadowOffset: { height: 10, width: 10 },
   },
-  indicator: {
-    flex: 1,
-  },
 });
-
-export default Output;
