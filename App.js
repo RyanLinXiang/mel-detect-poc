@@ -1,3 +1,8 @@
+/* (C) Ryan Lin Xiang, 2020
+Created: 21/08/2020
+Last modified: 24/08/2020
+*/
+
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, TouchableOpacity, Image, Text } from "react-native";
 import * as tf from "@tensorflow/tfjs";
@@ -18,13 +23,14 @@ async function getPermissionAsync() {
 }
 
 async function imageToTensor(source) {
+  // load the raw data of the selected image into an array
   const response = await fetch(source.uri, {}, { isBinary: true });
   const rawImageData = await response.arrayBuffer();
-
   const { width, height, data } = jpeg.decode(rawImageData, {
-    useTArray: true,
+    useTArray: true, // Uint8Array = true
   });
 
+  // remove the alpha channel:
   const buffer = new Uint8Array(width * height * 3);
   let offset = 0;
   for (let i = 0; i < buffer.length; i += 3) {
@@ -34,45 +40,51 @@ async function imageToTensor(source) {
     offset += 4;
   }
 
+  // transform image data into a tensor
   const img = tf.tensor3d(buffer, [width, height, 3]);
 
+  // calculate square center crop area
   const shorterSide = Math.min(width, height);
-
   const startingHeight = (height - shorterSide) / 2;
   const startingWidth = (width - shorterSide) / 2;
   const endingHeight = startingHeight + shorterSide;
   const endingWidth = startingWidth + shorterSide;
 
+  // slice and resize the image
   const sliced_img = img.slice(
     [startingWidth, startingHeight, 0],
     [endingWidth, endingHeight, 3]
   );
   const resized_img = tf.image.resizeBilinear(sliced_img, [224, 224]);
 
+  // add a fourth batch dimension to the tensor
   const expanded_img = resized_img.expandDims(0);
+
+  // normalise the rgb values to -1-+1
   return expanded_img.toFloat().div(tf.scalar(127)).sub(tf.scalar(1));
 }
 
 export default function App() {
-  const [isTfReady, setTfReady] = useState(false);
-  const [model, setModel] = useState(null);
-  const [image, setImage] = useState(null);
-  const [predictions, setPredictions] = useState(null);
-  const [error, setError] = useState(false);
+  const [isTfReady, setTfReady] = useState(false); // gets and sets the Tensorflow.js module loading status
+  const [model, setModel] = useState(null); // gets and sets the locally saved Tensorflow.js model
+  const [image, setImage] = useState(null); // gets and sets the image selected from the user
+  const [predictions, setPredictions] = useState(null); // gets and sets the predicted value from the model
+  const [error, setError] = useState(false); // gets and sets any errors
 
   useEffect(() => {
     (async () => {
-      await tf.ready();
-      setTfReady(true);
+      await tf.ready(); // wait for Tensorflow.js to get ready
+      setTfReady(true); // set the state
 
+      // bundle the model files and load the model:
       const model = require("./assets/model.json");
       const weights = require("./assets/weights.bin");
       const loadedModel = await tf.loadGraphModel(
         bundleResourceIO(model, weights)
       );
 
-      setModel(loadedModel);
-      getPermissionAsync();
+      setModel(loadedModel); // load the model to the state
+      getPermissionAsync(); // get the permission for camera roll access for iOS users
     })();
   }, []);
 
@@ -80,17 +92,17 @@ export default function App() {
     try {
       let response = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 1,
-        aspect: [4, 3],
+        allowsEditing: true, // on Android user can rotate and crop the selected image; iOS users can only crop
+        quality: 1, // go for highest quality possible
+        aspect: [4, 3], // maintain aspect ratio of the crop area on Android; on iOS crop area is always a square
       });
 
       if (!response.cancelled) {
         const source = { uri: response.uri };
-        setImage(source);
-        const imageTensor = await imageToTensor(source);
-        const predictions = await model.predict(imageTensor);
-        setPredictions(predictions);
+        setImage(source); // put image path to the state
+        const imageTensor = await imageToTensor(source); // prepare the image
+        const predictions = await model.predict(imageTensor); // send the image to the model
+        setPredictions(predictions); // put model prediction to the state
       }
     } catch (error) {
       setError(error);
@@ -139,7 +151,7 @@ export default function App() {
         </Text>
         <TouchableOpacity
           style={styles.imageContainer}
-          onPress={model && !predictions ? handlerSelectImage : undefined}
+          onPress={model && !predictions ? handlerSelectImage : () => {}} // Activates handler only if the model has been loaded and there are no predictions done yet
         >
           <Output
             status={status}

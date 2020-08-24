@@ -1,3 +1,8 @@
+/* (C) Ryan Lin Xiang, 2020
+Created: 21/08/2020
+Last modified: 24/08/2020
+*/
+
 import React from "react";
 import {
   StyleSheet,
@@ -36,8 +41,8 @@ export default function Output(props) {
               Probability of melanoma:{" "}
             </Text>
             <Text style={styles.predictedNumber}>
-              {Math.round(predictions.dataSync()[0] * 100)}
-
+              {Math.round(predictions.dataSync()[0] * 100)}{" "}
+              {/* convert tensor into array and access the first category probability*/}
               <Text style={styles.predictedNumberPercentage}> %</Text>
             </Text>
           </View>
@@ -56,7 +61,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pleaseholder: { fontSize: 50 },
+  placeholder: { fontSize: 50 },
   predictedImageExtras: { borderRadius: 20 },
   predictedNumberHeader: { fontSize: 12, color: "white" },
   predictedNumberPercentage: { fontSize: 24, color: "white" },
