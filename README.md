@@ -8,6 +8,8 @@ The app here builds a simple user interface around an image classifier model whi
 
 ![screenshot](illustration.png)
 
+You can find a more elaborated solution [here](https://github.com/RyanLinXiang/myskin) in my repos.
+
 ### Dependencies
 
 ```
