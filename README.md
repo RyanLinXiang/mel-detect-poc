@@ -1,20 +1,14 @@
-# mySkin
-
-Predict. Prevent. Protect.
+# mel-detect-poc
 
 ## Description
 
-"mySkin" is a German React Native app to detect skin cancer (melanoma) from a mole image uploaded by the user. This app is a proof-of-concept and the first React native app known to include a locally saved and run AI model, imported with TensorflowJS. The model is totally encapsulated and doesn't share any data. The model was trained with over 10,000 publicly accessable images (HAM10000). Beside that, the app offers many information, real-time UV index, reminder function for the next skin screening and a discussion forum. The app is the final project of an intense 3-months bootcamp on JavaScript and should not only showcase what has been learned but also what is possbile nowadays with this powerful programming language.
+This is a tutorial project for my article "[How to run AI models locally in the mobile device with React Native and Tensorflow.js](https://medium.com/@lin.xiang/how-to-run-ai-models-locally-in-the-smartphone-with-react-native-and-tensorflow-js-666f52fd15ca)". In this article my goal is to show how simple it is to integrate and run an AI model on the mobile device with React Native and Tensorflow.js.
 
-![mySkin screens](screenshots/myskin-overview.png)
+The app here builds a simple user interface around an image classifier model which I took as an example and which is trained based on publicy accessable melanoma (skin cancer) images. The app asks the user to select an individual skin mole picture and returns the probability of this mole being a melanoma. The underlying AI model runs completely locally and contained in the mobile device.
 
-The skin cancer prediction part is easy-to-use and analyzes the mole image within seconds. After finishing the analyses a probability score (0-100%) is output.
+![screenshot](illustration.png)
 
-![mySkin screens](screenshots/myskin-predict-animated.gif)
-
-## Getting Started
-
-The front-end part of "mySkin" was created with Expo. In the back-end there is a server hosted on Heroku with database connection to AWS. In order to run the app you have to install Expo and all the dependencies (see package.json). After running the app please register or just login with username "guest" and password "guest".
+You can find a more elaborated solution [here](https://github.com/RyanLinXiang/myskin) in my repos.
 
 ### Dependencies
 
@@ -33,13 +27,6 @@ npm install
 ```
 npm start
 ```
-
-## Authors
-
-* Lin Xiang (AI model and implementation)
-* Dan Pina (Discussion forum)
-* Cristina Trebe (Layout and contents)
-* Ricky Duncan-Williams (UV-Index)
 
 ## Acknowledgments
 
